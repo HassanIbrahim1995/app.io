@@ -20,6 +20,7 @@ import AdminRooms from './pages/admin/AdminRooms';
 import AdminReservations from './pages/admin/AdminReservations';
 import AdminGuests from './pages/admin/AdminGuests';
 import HousekeepingPage from './pages/admin/HousekeepingPage';
+import ProductsPage from './pages/admin/ProductsPage';
 
 const theme = createTheme({
   palette: {
@@ -143,6 +144,14 @@ function App() {
                 element={
                   <AdminRoute>
                     <HousekeepingPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/products"
+                element={
+                  <AdminRoute>
+                    <ProductsPage />
                   </AdminRoute>
                 }
               />
