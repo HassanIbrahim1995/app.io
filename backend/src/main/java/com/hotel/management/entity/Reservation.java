@@ -98,4 +98,17 @@ public class Reservation extends BaseEntity {
 
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ReservationAddon> addons = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_reservation_id")
+    private GroupReservation groupReservation;
+
+    @Column(name = "cancellation_policy", length = 500)
+    private String cancellationPolicy;
+
+    @Column(name = "refund_amount", precision = 10, scale = 2)
+    private BigDecimal refundAmount = BigDecimal.ZERO;
+
+    @Column(name = "refund_processed", nullable = false)
+    private Boolean refundProcessed = false;
 }

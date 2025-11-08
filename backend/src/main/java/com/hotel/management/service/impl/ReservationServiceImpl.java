@@ -136,9 +136,23 @@ public class ReservationServiceImpl implements ReservationService {
             throw new BadRequestException("Reservation is already cancelled");
         }
 
+        // Calculate refund based on cancellation policy
+        BigDecimal refundAmount = calculateRefundAmount(reservation);
+        
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setCancelledAt(LocalDateTime.now());
         reservation.setCancelledBy(user.getId());
+        reservation.setRefundAmount(refundAmount);
+        reservation.setRefundProcessed(false);
+        
+        // Set cancellation reason based on timing
+        long daysUntilCheckIn = ChronoUnit.DAYS.between(LocalDateTime.now().toLocalDate(), reservation.getCheckInDate());
+        String cancellationReason = daysUntilCheckIn >= 7 ? 
+            "Cancelled with full refund (7+ days notice)" : 
+            daysUntilCheckIn >= 3 ? 
+                "Cancelled with 50% refund (3-7 days notice)" : 
+                "Cancelled with no refund (less than 3 days notice)";
+        reservation.setCancellationReason(cancellationReason);
 
         // Update room status
         Room room = reservation.getRoom();
@@ -147,6 +161,28 @@ public class ReservationServiceImpl implements ReservationService {
 
         reservationRepository.save(reservation);
         return mapToReservationResponse(reservation);
+    }
+    
+    private BigDecimal calculateRefundAmount(Reservation reservation) {
+        // Calculate days until check-in
+        long daysUntilCheckIn = ChronoUnit.DAYS.between(
+            LocalDateTime.now().toLocalDate(), 
+            reservation.getCheckInDate()
+        );
+        
+        BigDecimal paidAmount = reservation.getPaidAmount();
+        
+        // Cancellation policy:
+        // 7+ days: Full refund (100%)
+        // 3-7 days: 50% refund
+        // < 3 days: No refund
+        if (daysUntilCheckIn >= 7) {
+            return paidAmount;
+        } else if (daysUntilCheckIn >= 3) {
+            return paidAmount.multiply(BigDecimal.valueOf(0.5));
+        } else {
+            return BigDecimal.ZERO;
+        }
     }
 
     @Override

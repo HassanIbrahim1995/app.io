@@ -19,6 +19,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminRooms from './pages/admin/AdminRooms';
 import AdminReservations from './pages/admin/AdminReservations';
 import AdminGuests from './pages/admin/AdminGuests';
+import HousekeepingPage from './pages/admin/HousekeepingPage';
 
 const theme = createTheme({
   palette: {
@@ -134,6 +135,14 @@ function App() {
                 element={
                   <AdminRoute>
                     <AdminGuests />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/housekeeping"
+                element={
+                  <AdminRoute>
+                    <HousekeepingPage />
                   </AdminRoute>
                 }
               />
