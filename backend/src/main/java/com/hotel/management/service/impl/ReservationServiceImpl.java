@@ -12,6 +12,8 @@ import com.hotel.management.repository.PromotionRepository;
 import com.hotel.management.repository.ReservationRepository;
 import com.hotel.management.repository.RoomRepository;
 import com.hotel.management.service.ReservationService;
+import com.hotel.management.util.DateValidationUtil;
+import com.hotel.management.util.ValidationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,13 +38,12 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     @Transactional
     public ReservationResponse createReservation(ReservationRequest request, User user) {
-        // Validate dates
-        if (request.getCheckInDate().isBefore(LocalDate.now())) {
-            throw new BadRequestException("Check-in date cannot be in the past");
-        }
-        if (request.getCheckOutDate().isBefore(request.getCheckInDate())) {
-            throw new BadRequestException("Check-out date must be after check-in date");
-        }
+        // Comprehensive date validation
+        DateValidationUtil.validateCheckInNotInPast(request.getCheckInDate());
+        DateValidationUtil.validateCheckInCheckOutDates(request.getCheckInDate(), request.getCheckOutDate());
+        DateValidationUtil.validateMinimumStay(request.getCheckInDate(), request.getCheckOutDate(), 1);
+        DateValidationUtil.validateMaximumStay(request.getCheckInDate(), request.getCheckOutDate(), 365);
+        DateValidationUtil.validateAdvancedBooking(request.getCheckInDate(), 730); // 2 years max
 
         // Get guest
         Guest guest = guestRepository.findByUserId(user.getId())
@@ -52,9 +53,12 @@ public class ReservationServiceImpl implements ReservationService {
         Room room = roomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new ResourceNotFoundException("Room", "id", request.getRoomId()));
 
-        // Check room availability
-        if (!isRoomAvailable(room.getId(), request.getCheckInDate(), request.getCheckOutDate())) {
-            throw new BadRequestException("Room is not available for the selected dates");
+        // Validate guest count
+        ValidationUtil.validateGuestCount(request.getNumberOfGuests(), room.getMaxOccupancy());
+
+        // Check room availability with date overlap validation
+        if (!isRoomAvailableWithOverlapCheck(room.getId(), request.getCheckInDate(), request.getCheckOutDate(), null)) {
+            throw new BadRequestException("Room is not available for the selected dates - overlaps with existing reservation");
         }
 
         // Calculate total amount
@@ -232,6 +236,49 @@ public class ReservationServiceImpl implements ReservationService {
         return conflictingReservations.stream()
                 .noneMatch(r -> r.getRoom().getId().equals(roomId) &&
                         r.getStatus() != ReservationStatus.CANCELLED);
+    }
+
+    /**
+     * Enhanced room availability check with explicit date overlap validation
+     * @param roomId The room to check
+     * @param checkIn Check-in date
+     * @param checkOut Check-out date
+     * @param excludeReservationId Reservation ID to exclude from check (for updates)
+     * @return true if room is available, false otherwise
+     */
+    private boolean isRoomAvailableWithOverlapCheck(Long roomId, LocalDate checkIn, LocalDate checkOut, Long excludeReservationId) {
+        // Get all active reservations for this room
+        List<Reservation> conflictingReservations = reservationRepository.findByDateRange(
+                checkIn.minusDays(365), // Look back to catch any long-term reservations
+                checkOut.plusDays(365)  // Look forward
+        );
+
+        // Check for date overlaps
+        for (Reservation reservation : conflictingReservations) {
+            // Skip if this is the reservation being updated
+            if (excludeReservationId != null && reservation.getId().equals(excludeReservationId)) {
+                continue;
+            }
+
+            // Only check for this specific room
+            if (!reservation.getRoom().getId().equals(roomId)) {
+                continue;
+            }
+
+            // Skip cancelled reservations
+            if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+                continue;
+            }
+
+            // Use date validation utility to check for overlaps
+            if (DateValidationUtil.doDateRangesOverlap(
+                    checkIn, checkOut,
+                    reservation.getCheckInDate(), reservation.getCheckOutDate())) {
+                return false; // Overlap detected
+            }
+        }
+
+        return true; // No overlaps found
     }
 
     private BigDecimal calculateDiscount(BigDecimal totalAmount, Promotion promotion) {
