@@ -1,0 +1,31 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/hotel-management/config-repo  # Change to your config repo
+          default-label: main
+          clone-on-start: true
+        # For local file system during development
+        native:
+          search-locations: classpath:/config
+  profiles:
+    active: native  # Use 'native' for local files, remove for git
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,bus-refresh

@@ -1,0 +1,154 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # User Service Routes
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/employees/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+        # Guest Service Routes
+        - id: guest-service
+          uri: lb://GUEST-SERVICE
+          predicates:
+            - Path=/api/v1/guests/**, /api/v1/guest-profile/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+        # Room Service Routes
+        - id: room-service
+          uri: lb://ROOM-SERVICE
+          predicates:
+            - Path=/api/v1/rooms/**, /api/v1/room-types/**, /api/v1/amenities/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+        # Reservation Service Routes
+        - id: reservation-service
+          uri: lb://RESERVATION-SERVICE
+          predicates:
+            - Path=/api/v1/reservations/**, /api/v1/group-reservations/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+        # Payment Service Routes
+        - id: payment-service
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/api/v1/payments/**, /api/v1/revenues/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+        # Housekeeping Service Routes
+        - id: housekeeping-service
+          uri: lb://HOUSEKEEPING-SERVICE
+          predicates:
+            - Path=/api/v1/housekeeping/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+        # Product Service Routes
+        - id: product-service
+          uri: lb://PRODUCT-SERVICE
+          predicates:
+            - Path=/api/v1/products/**, /api/v1/upsells/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+        # Policy Service Routes
+        - id: policy-service
+          uri: lb://POLICY-SERVICE
+          predicates:
+            - Path=/api/v1/policies/**, /api/v1/rate-plans/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+        # Review Service Routes
+        - id: review-service
+          uri: lb://REVIEW-SERVICE
+          predicates:
+            - Path=/api/v1/reviews/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+        # Analytics Service Routes
+        - id: analytics-service
+          uri: lb://ANALYTICS-SERVICE
+          predicates:
+            - Path=/api/v1/analytics/**, /api/v1/audit-logs/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+        - AddResponseHeader=X-Response-Time, ${start-time}
+        
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: false
+            maxAge: 3600
+
+  redis:
+    host: localhost
+    port: 6379
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,metrics
+  endpoint:
+    health:
+      show-details: always
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10000
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 3s
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:mySecretKeyForHotelManagementSystem12345}
+  expiration: 86400000
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    reactor.netty.http.client: DEBUG
